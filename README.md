@@ -73,6 +73,7 @@ pnpm --filter @echoes/api dev   # 后端
 - [这套系统在做什么](#这套系统在做什么)
 - [技术栈](#技术栈)
 - [项目结构](#项目结构)
+- [关键文件](#关键文件)
 - [运行流程](#运行流程)
 - [环境要求](#环境要求)
 - [安装依赖](#安装依赖)
@@ -125,15 +126,100 @@ pnpm --filter @echoes/api dev   # 后端
 ```text
 .
 ├── apps/
-│   ├── api/        # Express API、记忆管理、模型调用
-│   └── web/        # React 前端
+│   ├── api/                          # 后端服务
+│   │   ├── src/
+│   │   │   ├── server.ts             # 入口：加载 .env，启动 Express
+│   │   │   ├── app.ts                # Express 配置：路由、中间件、错误处理
+│   │   │   ├── db.ts                 # JSON 文件数据库（async-mutex 防并发写冲突）
+│   │   │   ├── errors.ts             # 自定义 ApiError 类
+│   │   │   ├── validators.ts         # zod 请求参数校验
+│   │   │   ├── routes/
+│   │   │   │   ├── chat.ts           # 核心路由：对话/辩论/反向问答/情绪回响
+│   │   │   │   ├── roles.ts          # 角色列表接口
+│   │   │   │   ├── history.ts        # 历史记录 CRUD
+│   │   │   │   └── session.ts        # 会话管理
+│   │   │   └── modules/
+│   │   │       ├── constitution.ts   # 角色宪法（知识边界、语言风格约束）
+│   │   │       ├── llmProvider.ts    # DeepSeek API 调用
+│   │   │       ├── llmMock.ts        # 本地 Mock 回退
+│   │   │       ├── contextManager.ts # 记忆管理（按用户+人物维度）
+│   │   │       ├── retrieval.ts      # 本地检索（词频相关性打分）
+│   │   │       ├── knowledgeService.ts # 内置知识库 + AI 证据生成
+│   │   │       └── analysisService.ts  # 对话分析（词频、立场一致性）
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   └── web/                          # 前端应用
+│       ├── src/
+│       │   ├── main.tsx              # React 入口
+│       │   ├── App.tsx               # 主组件（全部页面逻辑）
+│       │   ├── style.css             # 全局样式
+│       │   └── vite-env.d.ts         # Vite 类型声明
+│       ├── index.html                # HTML 入口
+│       ├── vite.config.ts            # Vite 构建配置
+│       ├── vercel.json               # Vercel 部署配置
+│       ├── package.json
+│       └── tsconfig.json
+├── deploy/
+│   └── nginx/
+│       └── echoes.conf               # Nginx 反代配置（HTTPS、安全头部）
 ├── scripts/
-│   └── deploy.sh   # 一键部署脚本
-├── .env.example
-├── package.json
-├── pnpm-workspace.yaml
+│   └── deploy.sh                     # 一键部署脚本（pnpm + pm2 + nginx）
+├── .env.example                      # 环境变量模板
+├── package.json                      # 根 package.json（workspaces）
+├── pnpm-workspace.yaml               # pnpm 单体仓库配置
 └── README.md
 ```
+
+## 关键文件
+
+### 后端入口与配置
+
+| 文件 | 作用 |
+|------|------|
+| `apps/api/src/server.ts` | **后端入口**。加载环境变量 `.env`，启动 Express 服务监听端口（默认 4000） |
+| `apps/api/src/app.ts` | **Express 应用配置**。注册路由、中间件（CORS、日志、限流、JSON 解析）、全局错误处理 |
+| `apps/api/src/validators.ts` | **请求校验**。使用 `zod` 库对 `chat`、`history`、`session` 接口的入参做类型和范围校验 |
+| `apps/api/src/errors.ts` | **自定义错误类** `ApiError`，携带 HTTP 状态码，统一错误返回格式 |
+| `apps/api/src/db.ts` | **JSON 文件数据库**。所有对话记录读写 `echoes.db.json`，使用 `async-mutex` 互斥锁防并发写冲突 |
+
+### 后端路由层
+
+| 文件 | 作用 |
+|------|------|
+| `apps/api/src/routes/chat.ts` | **核心路由**。处理四种模式的聊天请求：普通对话、辩论、反向问答、情绪回响 |
+| `apps/api/src/routes/roles.ts` | **角色列表接口**。`GET /roles` 返回所有可选历史人物及其简介 |
+| `apps/api/src/routes/history.ts` | **历史记录 CRUD**。`GET` 分页查询、`DELETE` 按用户/角色删除 |
+| `apps/api/src/routes/session.ts` | **会话管理**。`POST /session/end` 用户离开时清理服务端会话 |
+
+### 后端核心模块
+
+| 文件 | 作用 |
+|------|------|
+| `apps/api/src/modules/constitution.ts` | **角色宪法**。定义每个历史人物的身份、知识边界、语言风格、禁止用词等约束条件 |
+| `apps/api/src/modules/llmProvider.ts` | **DeepSeek 模型调用**。拼接带角色宪法、记忆、证据的提示词，调用 DeepSeek API 生成回复 |
+| `apps/api/src/modules/llmMock.ts` | **本地 Mock**。未配置 API Key 时用确定性模板生成模拟回复，便于离线开发 |
+| `apps/api/src/modules/contextManager.ts` | **记忆管理**。按用户+人物维度构建对话记忆包，包含摘要和最近轮次 |
+| `apps/api/src/modules/retrieval.ts` | **本地检索**。基于词频的文本相关性打分，用于从对话历史和知识库中召回相关内容 |
+| `apps/api/src/modules/knowledgeService.ts` | **知识库**。内置各人物的经典语录（如《论语》《道德经》），支持检索和 AI 生成证据 |
+| `apps/api/src/modules/analysisService.ts` | **对话分析**。对历史对话做词频分析，评估立场一致性，给出改进建议 |
+
+### 前端
+
+| 文件 | 作用 |
+|------|------|
+| `apps/web/src/main.tsx` | **前端入口**。React DOM 渲染 |
+| `apps/web/src/App.tsx` | **主组件**（约 1600 行）。包含全部页面逻辑：对话、辩论、反向问答、情绪回响、历史管理 |
+| `apps/web/src/style.css` | **全局样式** |
+| `apps/web/vite.config.ts` | **Vite 构建配置**。开发时代理 `/chat`、`/health` 到后端 4000 端口 |
+| `apps/web/vercel.json` | **Vercel 部署配置**。将 `/api/*` 请求 rewrite 到服务器 `gyx.luxe/api/$1` |
+
+### 部署与运维
+
+| 文件 | 作用 |
+|------|------|
+| `scripts/deploy.sh` | **一键部署脚本**。拉取代码 → 安装依赖 → 构建前后端 → PM2 启动 API 集群 → 更新 Nginx 静态文件 |
+| `deploy/nginx/echoes.conf` | **Nginx 反向代理配置**。HTTPS 证书、转发 `/api/` 到后端 4000 端口、安全头部 |
+| `pnpm-workspace.yaml` | **pnpm 单体仓库配置**。`apps/*` 目录下的包共享依赖，支持 `@echoes/api` 和 `@echoes/web` |
 
 ## 运行流程
 
