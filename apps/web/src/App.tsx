@@ -23,7 +23,7 @@ export default function App() {
     const [evidence, setEvidence] = useState<any>(null)
     const [expandedEvidence, setExpandedEvidence] = useState<number[]>([])
     const [userId, setUserId] = useState<string | null>(null)
-    const [page, setPage] = useState<'chat' | 'history' | 'debate' | 'debateHistory' | 'reverseQA' | 'reverseQAHistory' | 'emotionEcho'>('chat')
+    const [page, setPage] = useState<'chat' | 'history' | 'debate' | 'debateHistory' | 'reverseQA' | 'reverseQAHistory' | 'emotionEcho' | 'emotionEchoHistory'>('chat')
     const [historyStore, setHistoryStore] = useState<HistoryStore>({})
     const [selectedHistoryRole, setSelectedHistoryRole] = useState('')
     const [exportFormat, setExportFormat] = useState<'markdown' | 'txt'>('markdown')
