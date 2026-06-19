@@ -59,6 +59,7 @@ export default function App() {
     const [emotionSelectedRole, setEmotionSelectedRole] = useState<string | null>(null)
     const [isEmotionSending, setIsEmotionSending] = useState(false)
     const [emotionEchoHistoryStore, setEmotionEchoHistoryStore] = useState<EmotionEchoRecord[]>([])
+    const [sidebarOpen, setSidebarOpen] = useState(false)
 
     function genClientMessageId() {
         return `c-${Date.now()}-${Math.floor(Math.random() * 1000000)}`
@@ -1200,37 +1201,48 @@ export default function App() {
             }
         }
 
+        const closeSidebar = () => setSidebarOpen(false)
+
+        const wrapNav = (action: () => void) => () => {
+            action()
+            closeSidebar()
+        }
+
         return (
-            <aside className="sidebar">
-                <div className="sidebar-header">
-                    <h2 className="sidebar-title">Echoes</h2>
-                    <div className="sidebar-subtitle">历史人物对话</div>
-                </div>
-                <nav className="sidebar-nav">
-                    {sections.map(s => (
-                        <div key={s.key} className={`sidebar-section ${isSectionActive(s) ? 'active' : ''}`}>
-                            <button className="sidebar-section-btn" onClick={s.onMainClick}>
-                                {s.label}
-                                <span className="sidebar-section-arrow">▶</span>
-                            </button>
-                            <div className="sidebar-sub-items">
-                                <button
-                                    className={`sidebar-sub-item ${page === s.mainPage ? 'active' : ''}`}
-                                    onClick={s.onMainClick}
-                                >
-                                    主页面
+            <>
+                <div className={`sidebar-backdrop ${sidebarOpen ? 'visible' : ''}`} onClick={closeSidebar} />
+                <aside className={`sidebar ${sidebarOpen ? 'visible' : ''}`}>
+                    <div className="sidebar-header">
+                        <button className="sidebar-close-btn" onClick={closeSidebar} aria-label="关闭菜单">✕</button>
+                        <h2 className="sidebar-title">Echoes</h2>
+                        <div className="sidebar-subtitle">历史人物对话</div>
+                    </div>
+                    <nav className="sidebar-nav">
+                        {sections.map(s => (
+                            <div key={s.key} className={`sidebar-section ${isSectionActive(s) ? 'active' : ''}`}>
+                                <button className="sidebar-section-btn" onClick={wrapNav(s.onMainClick)}>
+                                    {s.label}
+                                    <span className="sidebar-section-arrow">▶</span>
                                 </button>
-                                <button
-                                    className={`sidebar-sub-item ${page === s.historyPage ? 'active' : ''}`}
-                                    onClick={() => handleHistoryNav(s)}
-                                >
-                                    历史
-                                </button>
+                                <div className="sidebar-sub-items">
+                                    <button
+                                        className={`sidebar-sub-item ${page === s.mainPage ? 'active' : ''}`}
+                                        onClick={wrapNav(s.onMainClick)}
+                                    >
+                                        主页面
+                                    </button>
+                                    <button
+                                        className={`sidebar-sub-item ${page === s.historyPage ? 'active' : ''}`}
+                                        onClick={wrapNav(() => handleHistoryNav(s))}
+                                    >
+                                        历史
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                    ))}
-                </nav>
-            </aside>
+                        ))}
+                    </nav>
+                </aside>
+            </>
         )
     }
 
@@ -1238,6 +1250,9 @@ export default function App() {
         <div className="app-layout">
             {renderSidebar()}
             <main className="app-content">
+                <button className="sidebar-toggle" onClick={() => setSidebarOpen(true)} aria-label="打开菜单">
+                    ☰
+                </button>
                 {page === 'chat' && (
                     <div className="app-shell chat-page">
                         <main className="main-panel">
