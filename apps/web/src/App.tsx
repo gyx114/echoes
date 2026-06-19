@@ -1152,218 +1152,110 @@ export default function App() {
         return () => window.clearTimeout(id)
     }, [liveDebate, debatesList, selectedDebateId])
 
-    const mainNavItems = [
-        { key: 'chat', label: '对话', onClick: () => { if (role === '随机') setRole('孔子'); setPage('chat') } },
-        {
-            key: 'debate', label: '辩论', onClick: () => {
-                if (role === '随机') setRole('孔子')
-                const uid = userId || getOrCreateLocalUserId()
-                setUserId(uid)
-                refreshDebates(uid)
-                setPage('debate')
-            }
-        },
-        { key: 'reverseQA', label: '反向问答', onClick: () => { if (role === '随机') setRole('孔子'); openReverseQA() } },
-        { key: 'emotionEcho', label: '情绪回响', onClick: () => { setRole('随机'); setPage('emotionEcho'); setEmotionReply(null); setEmotionLabel(null); setEmotionSelectedRole(null) } }
-    ]
+    function renderSidebar() {
+        const sections = [
+            {
+                key: 'chat', label: '对话',
+                mainPage: 'chat' as const, historyPage: 'history' as const,
+                onMainClick: () => { if (role === '随机') setRole('孔子'); setPage('chat') },
+            },
+            {
+                key: 'debate', label: '辩论',
+                mainPage: 'debate' as const, historyPage: 'debateHistory' as const,
+                onMainClick: () => {
+                    if (role === '随机') setRole('孔子')
+                    const uid = userId || getOrCreateLocalUserId()
+                    setUserId(uid); refreshDebates(uid); setPage('debate')
+                },
+            },
+            {
+                key: 'reverseQA', label: '反向问答',
+                mainPage: 'reverseQA' as const, historyPage: 'reverseQAHistory' as const,
+                onMainClick: () => { if (role === '随机') setRole('孔子'); openReverseQA() },
+            },
+            {
+                key: 'emotionEcho', label: '情绪回响',
+                mainPage: 'emotionEcho' as const, historyPage: 'emotionEchoHistory' as const,
+                onMainClick: () => { setRole('随机'); setPage('emotionEcho'); setEmotionReply(null); setEmotionLabel(null); setEmotionSelectedRole(null) },
+            },
+        ]
 
-    function renderGlobalNav() {
-        function isNavActive(key: string) {
-            if (key === page) return true
-            if (key === 'reverseQA' && page === 'reverseQAHistory') return true
-            if (key === 'debate' && page === 'debateHistory') return true
-            if (key === 'chat' && page === 'history') return true
-            if (key === 'emotionEcho' && page === 'emotionEcho') return true
-            if (key === 'emotionEcho' && page === 'emotionEchoHistory') return true
-            return false
+        const isSectionActive = (s: typeof sections[number]) =>
+            page === s.mainPage || page === s.historyPage
+
+        const handleHistoryNav = (s: typeof sections[number]) => {
+            if (s.key === 'chat') {
+                const uid = userId || getOrCreateLocalUserId()
+                const roleToShow = role === '自定义' ? (customRole || '未知人物') : role
+                setUserId(uid); refreshHistory(uid, roleToShow); setPage('history')
+            } else if (s.key === 'debate') {
+                const uid = userId || getOrCreateLocalUserId()
+                setUserId(uid); refreshDebates(uid); setPage('debateHistory')
+            } else if (s.key === 'reverseQA') {
+                const uid = userId || getOrCreateLocalUserId()
+                setUserId(uid); syncReverseQASessionList(uid); setPage('reverseQAHistory')
+            } else if (s.key === 'emotionEcho') {
+                const uid = userId || getOrCreateLocalUserId()
+                setUserId(uid); refreshEmotionEchoHistory(uid); setPage('emotionEchoHistory')
+            }
         }
 
         return (
-            <div className="global-nav">
-                <div className="global-nav-title">功能入口</div>
-                <div className="global-nav-actions">
-                    {mainNavItems.map(item => (
-                        <button
-                            key={item.key}
-                            className={`btn secondary global-nav-btn ${isNavActive(item.key) ? 'active' : ''}`}
-                            onClick={item.onClick}
-                        >
-                            {item.label}
-                        </button>
-                    ))}
+            <aside className="sidebar">
+                <div className="sidebar-header">
+                    <h2 className="sidebar-title">Echoes</h2>
+                    <div className="sidebar-subtitle">历史人物对话</div>
                 </div>
-            </div>
+                <nav className="sidebar-nav">
+                    {sections.map(s => (
+                        <div key={s.key} className={`sidebar-section ${isSectionActive(s) ? 'active' : ''}`}>
+                            <button className="sidebar-section-btn" onClick={s.onMainClick}>
+                                {s.label}
+                                <span className="sidebar-section-arrow">▶</span>
+                            </button>
+                            <div className="sidebar-sub-items">
+                                <button
+                                    className={`sidebar-sub-item ${page === s.mainPage ? 'active' : ''}`}
+                                    onClick={s.onMainClick}
+                                >
+                                    主页面
+                                </button>
+                                <button
+                                    className={`sidebar-sub-item ${page === s.historyPage ? 'active' : ''}`}
+                                    onClick={() => handleHistoryNav(s)}
+                                >
+                                    历史
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </nav>
+            </aside>
         )
     }
 
     return (
-        <>
-            {renderGlobalNav()}
-            {page === 'chat' && (
-                <div className="app-shell chat-page">
-                    <main className="main-panel">
-                        <div className="container">
-                            <div className="topbar">
-                                <h1>Echoes — 历史人物对话</h1>
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                    <button className="btn secondary" onClick={() => {
-                                        const uid = userId || getOrCreateLocalUserId()
-                                        const roleToShow = role === '自定义' ? (customRole || '未知人物') : role
-                                        setUserId(uid)
-                                        refreshHistory(uid, roleToShow)
-                                        setPage('history')
-                                    }}>查看历史</button>
-                                </div>
-                            </div>
-
-                            <div className="controls">
-                                <div className="field role">
-                                    <label>人物</label>
-                                    <select value={role} onChange={e => setRole(e.target.value)}>
-                                        {roles.map(r => (
-                                            <option key={r} value={r}>{r}</option>
-                                        ))}
-                                    </select>
-                                    {role === '自定义' && (
-                                        <input className="custom-role" placeholder="输入自定义人物" value={customRole} onChange={e => setCustomRole(e.target.value)} />
-                                    )}
-                                </div>
-                                <div className="field grow question">
-                                    <label>问题</label>
-                                    <textarea
-                                        value={input}
-                                        style={{ overflowY: 'auto' }}
-                                        onChange={e => setInput(e.target.value)}
-                                        onKeyDown={e => {
-                                            if (e.key === 'Enter' && !e.shiftKey) {
-                                                e.preventDefault()
-                                                const trimmed = (input || '').trim()
-                                                if (trimmed && !isSending) send()
-                                            }
-                                        }}
-                                    />
-                                </div>
-                                <div className="field send">
-                                    <label>&nbsp;</label>
-                                    <div className="flex">
-                                        <button className="btn secondary" onClick={() => setInput('')} disabled={!(input || '').trim()} style={{ marginLeft: 13, marginRight: 8 }}>
-                                            清空
-                                        </button>
-                                        <button className="btn primary" onClick={send} disabled={isSending || !(input || '').trim()}>
-                                            {isSending ? '发送中...' : '发送'}
-                                        </button>
+        <div className="app-layout">
+            {renderSidebar()}
+            <main className="app-content">
+                {page === 'chat' && (
+                    <div className="app-shell chat-page">
+                        <main className="main-panel">
+                            <div className="container">
+                                <div className="topbar">
+                                    <h1>Echoes — 历史人物对话</h1>
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        <button className="btn secondary" onClick={() => {
+                                            const uid = userId || getOrCreateLocalUserId()
+                                            const roleToShow = role === '自定义' ? (customRole || '未知人物') : role
+                                            setUserId(uid)
+                                            refreshHistory(uid, roleToShow)
+                                            setPage('history')
+                                        }}>查看历史</button>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div className="output">
-                                <h2>回复</h2>
-                                <div className="reply">
-                                    {reply ? (
-                                        reply
-                                            .split(/(?<=[。！？?!;；\.])/u)
-                                            .map((s: string) => s.trim())
-                                            .filter((s: string) => s.length > 0)
-                                            .map((para: string, idx: number) => (
-                                                <p key={idx}>{para}</p>
-                                            ))
-                                    ) : (
-                                        <p className="muted">（暂无回复）</p>
-                                    )}
-                                </div>
-                                {evidence && evidence.length > 0 && (
-                                    <>
-                                        <h3>参考（AI 生成，未经证实）</h3>
-                                        <div className="evidence-list">
-                                            {evidence.map((ev: any, idx: number) => (
-                                                <button
-                                                    key={idx}
-                                                    type="button"
-                                                    className={`evidence-item ${expandedEvidence.includes(idx) ? 'expanded' : ''}`}
-                                                    onClick={() => {
-                                                        setExpandedEvidence(prev => (
-                                                            prev.includes(idx)
-                                                                ? prev.filter(item => item !== idx)
-                                                                : [...prev, idx]
-                                                        ))
-                                                    }}
-                                                >
-                                                    <div className="evidence-item-header">
-                                                        <span>参考 {idx + 1}</span>
-                                                        <span className="evidence-item-toggle">
-                                                            {expandedEvidence.includes(idx) ? '收起' : '展开'}
-                                                        </span>
-                                                    </div>
-                                                    <div className="evidence-item-body">
-                                                        <div className="evidence-text">{ev.text || JSON.stringify(ev)}</div>
-                                                    </div>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-                    </main>
-                </div>
-            )}
-
-            {page === 'reverseQA' && (
-                <div className="app-shell reverseqa-page">
-                    <main className="main-panel">
-                        <div className="container reverseqa-container">
-                            <div className="topbar reverseqa-topbar">
-                                <div>
-                                    <h1>Echoes — 反向问答</h1>
-                                    <div className="muted">让历史人物主动向你提问，你来回答，再继续追问</div>
-                                </div>
-                                <div className="reverseqa-topbar-actions">
-                                    <button className="btn secondary" onClick={toggleReverseQAHistory}>历史</button>
-                                    <button className="btn secondary" onClick={() => reverseQAImportRef.current?.click()}>
-                                        导入
-                                    </button>
-                                    <button className="btn secondary" onClick={startNewReverseQASession}>新会话</button>
-                                    <button className="btn secondary" onClick={() => { if (role === '随机') setRole('孔子'); setPage('chat') }}>返回主对话</button>
-                                </div>
-                            </div>
-
-                            <input
-                                ref={reverseQAImportRef}
-                                type="file"
-                                accept=".json,.md,.txt,application/json,text/markdown,text/plain"
-                                style={{ display: 'none' }}
-                                onChange={async e => {
-                                    const file = e.target.files?.[0]
-                                    e.target.value = ''
-                                    if (!file) return
-                                    try {
-                                        await importReverseQAFile(file)
-                                    } catch (err) {
-                                        console.warn('import reverseQA failed', err)
-                                    }
-                                }}
-                            />
-
-                            <section className="reverseqa-main-panel">
-                                <div className="reverseqa-current-question">
-                                    <div className="muted">当前问题</div>
-                                    <div className="reverseqa-question-text">{reverseQAQuestion}</div>
-                                </div>
-
-                                <div className="reverseqa-thread reply">
-                                    {reverseQAMessages.length === 0 ? (
-                                        <p className="muted">（点击“生成第一问”开始反向问答）</p>
-                                    ) : (
-                                        reverseQAMessages.map((message, index) => (
-                                            <div key={`${message.ts}-${index}`} className={`reverseqa-message ${message.speaker === '用户' ? 'user' : 'role'}`}>
-                                                <div className="reverseqa-message-meta">{message.speaker} · {new Date(message.ts).toLocaleTimeString()}</div>
-                                                <div className="reverseqa-message-text">{message.text}</div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-
-                                <div className="reverseqa-controls">
+                                <div className="controls">
                                     <div className="field role">
                                         <label>人物</label>
                                         <select value={role} onChange={e => setRole(e.target.value)}>
@@ -1376,22 +1268,16 @@ export default function App() {
                                         )}
                                     </div>
                                     <div className="field grow question">
-                                        <label>{reverseQAMessages.length === 0 ? '话题 / 起点' : '我的回答'}</label>
+                                        <label>问题</label>
                                         <textarea
-                                            value={reverseQAMessages.length === 0 ? reverseQATopic : reverseQAInput}
+                                            value={input}
                                             style={{ overflowY: 'auto' }}
-                                            onChange={e => {
-                                                const value = e.target.value
-                                                if (reverseQAMessages.length === 0) setReverseQATopic(value)
-                                                else setReverseQAInput(value)
-                                            }}
+                                            onChange={e => setInput(e.target.value)}
                                             onKeyDown={e => {
                                                 if (e.key === 'Enter' && !e.shiftKey) {
                                                     e.preventDefault()
-                                                    const ready = reverseQAMessages.length === 0
-                                                        ? (reverseQATopic || '').trim()
-                                                        : (reverseQAInput || '').trim()
-                                                    if (ready && !isReverseQASending) sendReverseQA()
+                                                    const trimmed = (input || '').trim()
+                                                    if (trimmed && !isSending) send()
                                                 }
                                             }}
                                         />
@@ -1399,653 +1285,807 @@ export default function App() {
                                     <div className="field send">
                                         <label>&nbsp;</label>
                                         <div className="flex">
-                                            <button
-                                                className="btn secondary"
-                                                onClick={() => reverseQAMessages.length === 0 ? setReverseQATopic('') : setReverseQAInput('')}
-                                                disabled={reverseQAMessages.length === 0 ? !(reverseQATopic || '').trim() : !(reverseQAInput || '').trim()}
-                                            >
+                                            <button className="btn secondary" onClick={() => setInput('')} disabled={!(input || '').trim()} style={{ marginLeft: 13, marginRight: 8 }}>
                                                 清空
                                             </button>
-                                            <button
-                                                className="btn primary"
-                                                onClick={sendReverseQA}
-                                                disabled={isReverseQASending || (reverseQAMessages.length === 0 ? !(reverseQATopic || '').trim() : !(reverseQAInput || '').trim())}
-                                            >
-                                                {isReverseQASending ? '发送中...' : (reverseQAMessages.length === 0 ? '生成第一问' : '提交回答并追问')}
+                                            <button className="btn primary" onClick={send} disabled={isSending || !(input || '').trim()}>
+                                                {isSending ? '发送中...' : '发送'}
                                             </button>
                                         </div>
                                     </div>
                                 </div>
-                            </section>
-                        </div>
-                    </main>
-                </div>
-            )}
 
-            {page === 'reverseQAHistory' && (
-                <div className="history-page">
-                    <div className="history-page-header">
-                        <div>
-                            <h1>反向问答历史</h1>
-                            <div className="muted">按会话查看本地反向问答记录，并可导出或删除</div>
-                        </div>
-                        <div className="history-page-actions">
-                            <button className="btn secondary" onClick={() => { if (role === '随机') setRole('孔子'); setPage('reverseQA') }}>返回反向问答</button>
-                            <button className="btn secondary" onClick={() => reverseQAImportRef.current?.click()}>导入会话</button>
-                        </div>
-                    </div>
-
-                    <div className="history-page-layout">
-                        <aside className="history-sidebar-panel">
-                            <div className="history-sidebar-title">反向问答会话</div>
-                            <div className="history-sidebar-list history-role-list">
-                                {reverseQASessions.length === 0 ? (
-                                    <p className="muted">（暂无反向问答会话）</p>
-                                ) : (
-                                    reverseQASessions.map(item => (
-                                        <button
-                                            key={item.id}
-                                            type="button"
-                                            className={`history-role ${selectedReverseQASessionId === item.id ? 'active' : ''}`}
-                                            onClick={() => setSelectedReverseQASessionId(item.id)}
-                                        >
-                                            <span className="history-role-name">{item.role}</span>
-                                            <span className="history-role-count">{item.messages.length} 条</span>
-                                        </button>
-                                    ))
-                                )}
-                            </div>
-                        </aside>
-
-                        <section className="history-detail-panel">
-                            <div className="history-detail-header history-detail-header-side">
-                                <div>
-                                    <div className="muted">用户 ID: {userId}</div>
-                                    <h3>{selectedReverseQASessionId || '请选择会话'}</h3>
-                                </div>
-                                <div className="history-toolbar history-toolbar-side">
-                                    <label className="history-export-label">
-                                        <span>导出格式</span>
-                                        <select value={exportFormat} onChange={e => setExportFormat(e.target.value as 'markdown' | 'txt')}>
-                                            <option value="markdown">Markdown</option>
-                                            <option value="txt">TXT</option>
-                                        </select>
-                                    </label>
-                                    <button
-                                        className="btn secondary"
-                                        onClick={exportSelectedReverseQASession}
-                                        disabled={!selectedReverseQASessionId || !reverseQASessions.find(item => item.id === selectedReverseQASessionId)?.messages.length}
-                                    >
-                                        导出当前会话
-                                    </button>
-                                    <button
-                                        className="btn secondary danger"
-                                        onClick={() => {
-                                            if (!userId || !selectedReverseQASessionId) return
-                                            deleteLocalReverseQASession(userId, selectedReverseQASessionId)
-                                            refreshReverseQASessions(userId)
-                                        }}
-                                        disabled={!selectedReverseQASessionId}
-                                    >
-                                        删除当前会话
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="history-thread">
-                                {!selectedReverseQASessionId ? (
-                                    <p className="muted">（请选择左侧会话查看历史）</p>
-                                ) : (() => {
-                                    const rec = reverseQASessions.find(item => item.id === selectedReverseQASessionId)
-                                    if (!rec) return <p className="muted">（该会话已删除）</p>
-                                    return rec.messages.length === 0 ? (
-                                        <p className="muted">（该会话暂无内容）</p>
-                                    ) : rec.messages.map((message, index) => (
-                                        <div key={`${message.ts}-${index}`} className={`reverseqa-message ${message.speaker === '用户' ? 'user' : 'role'}`}>
-                                            <div className="reverseqa-message-meta">{message.speaker} · {new Date(message.ts).toLocaleString()}</div>
-                                            <div className="reverseqa-message-text">{message.text}</div>
-                                        </div>
-                                    ))
-                                })()}
-                            </div>
-                        </section>
-                    </div>
-                </div>
-            )}
-
-            {page === 'emotionEcho' && (
-                <div className="app-shell emotion-echo-page">
-                    <main className="main-panel">
-                        <div className="container emotion-echo-container">
-                            <div className="topbar emotion-echo-topbar">
-                                <div>
-                                    <h1>Echoes — 情绪回响</h1>
-                                    <div className="muted">倾诉你的心情，让历史人物以他们的智慧回应你</div>
-                                </div>
-                                <div className="reverseqa-topbar-actions">
-                                    <button className="btn secondary" onClick={() => {
-                                        const uid = userId || getOrCreateLocalUserId()
-                                        setUserId(uid)
-                                        refreshEmotionEchoHistory(uid)
-                                        setPage('emotionEchoHistory')
-                                    }}>历史</button>
-                                </div>
-                            </div>
-
-                            <section className="emotion-echo-main-panel">
-                                <div className="emotion-echo-input-area">
-                                    <div className="field role">
-                                        <label>回应人物</label>
-                                        <select value={role} onChange={e => setRole(e.target.value)}>
-                                            <option value="随机">随机（AI 推荐）</option>
-                                            {roles.filter(r => r !== '自定义').map(r => (
-                                                <option key={r} value={r}>{r}</option>
-                                            ))}
-                                            <option value="自定义">自定义</option>
-                                        </select>
-                                        {role === '自定义' && (
-                                            <input className="custom-role" placeholder="输入自定义人物" value={customRole} onChange={e => setCustomRole(e.target.value)} />
+                                <div className="output">
+                                    <h2>回复</h2>
+                                    <div className="reply">
+                                        {reply ? (
+                                            reply
+                                                .split(/(?<=[。！？?!;；\.])/u)
+                                                .map((s: string) => s.trim())
+                                                .filter((s: string) => s.length > 0)
+                                                .map((para: string, idx: number) => (
+                                                    <p key={idx}>{para}</p>
+                                                ))
+                                        ) : (
+                                            <p className="muted">（暂无回复）</p>
                                         )}
                                     </div>
-                                    <div className="field grow">
-                                        <label>此刻的心情 / 想说的话</label>
-                                        <textarea
-                                            value={emotionInput}
-                                            style={{ overflowY: 'auto' }}
-                                            onChange={e => setEmotionInput(e.target.value)}
-                                            onKeyDown={e => {
-                                                if (e.key === 'Enter' && !e.shiftKey) {
-                                                    e.preventDefault()
-                                                    const trimmed = (emotionInput || '').trim()
-                                                    if (trimmed && !isEmotionSending) sendEmotionEcho()
-                                                }
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="field send">
-                                        <label>&nbsp;</label>
-                                        <div className="flex">
-                                            <button
-                                                className="btn secondary"
-                                                onClick={() => setEmotionInput('')}
-                                                disabled={!(emotionInput || '').trim()}
-                                            >
-                                                清空
-                                            </button>
-                                            <button
-                                                className="btn primary"
-                                                onClick={sendEmotionEcho}
-                                                disabled={isEmotionSending || !(emotionInput || '').trim()}
-                                            >
-                                                {isEmotionSending ? '发送中...' : '发送'}
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="emotion-echo-result">
-                                    {emotionLabel && (
-                                        <div className="emotion-analysis-badge">检测到情绪：{emotionLabel}</div>
-                                    )}
-                                    {emotionSelectedRole && role === '随机' && (
-                                        <div className="emotion-selected-role">→ {emotionSelectedRole} 回应你</div>
-                                    )}
-                                    <div className="emotion-echo-reply">
-                                        {emotionReply ? (
-                                            <div className="emotion-echo-reply-content">
-                                                {emotionReply.split('\n').map((line, i) => (
-                                                    line.trim() ? <p key={i}>{line}</p> : <br key={i} />
+                                    {evidence && evidence.length > 0 && (
+                                        <>
+                                            <h3>参考（AI 生成，未经证实）</h3>
+                                            <div className="evidence-list">
+                                                {evidence.map((ev: any, idx: number) => (
+                                                    <button
+                                                        key={idx}
+                                                        type="button"
+                                                        className={`evidence-item ${expandedEvidence.includes(idx) ? 'expanded' : ''}`}
+                                                        onClick={() => {
+                                                            setExpandedEvidence(prev => (
+                                                                prev.includes(idx)
+                                                                    ? prev.filter(item => item !== idx)
+                                                                    : [...prev, idx]
+                                                            ))
+                                                        }}
+                                                    >
+                                                        <div className="evidence-item-header">
+                                                            <span>参考 {idx + 1}</span>
+                                                            <span className="evidence-item-toggle">
+                                                                {expandedEvidence.includes(idx) ? '收起' : '展开'}
+                                                            </span>
+                                                        </div>
+                                                        <div className="evidence-item-body">
+                                                            <div className="evidence-text">{ev.text || JSON.stringify(ev)}</div>
+                                                        </div>
+                                                    </button>
                                                 ))}
                                             </div>
-                                        ) : (
-                                            <p className="muted">输入你的心情，点击"发送"让历史人物回应你</p>
-                                        )}
-                                    </div>
-                                </div>
-                            </section>
-                        </div>
-                    </main>
-                </div>
-            )}
-
-            {page === 'emotionEchoHistory' && (
-                <div className="history-page">
-                    <div className="history-page-header">
-                        <div>
-                            <h1>情绪回响记录</h1>
-                            <div className="muted">查看本地情绪回响历史，并可导出或删除</div>
-                        </div>
-                        <div className="history-page-actions">
-                            <button className="btn secondary" onClick={() => setPage('emotionEcho')}>返回情绪回响</button>
-                        </div>
-                    </div>
-
-                    <div className="history-page-layout">
-                        <aside className="history-sidebar-panel">
-                            <div className="history-sidebar-title">情绪记录</div>
-                            <div className="history-sidebar-list">
-                                <div className="history-role" style={{ cursor: 'default' }}>
-                                    <span className="history-role-name">全部记录</span>
-                                    <span className="history-role-count">{emotionEchoHistoryStore.length} 条</span>
-                                </div>
-                            </div>
-                        </aside>
-
-                        <section className="history-detail-panel">
-                            <div className="history-detail-header history-detail-header-side">
-                                <div>
-                                    <div className="muted">用户 ID: {userId}</div>
-                                    <h3>情绪回响 · 全部记录</h3>
-                                </div>
-                                <div className="history-toolbar history-toolbar-side">
-                                    <label className="history-export-label">
-                                        <span>导出格式</span>
-                                        <select value={exportFormat} onChange={e => setExportFormat(e.target.value as 'markdown' | 'txt')}>
-                                            <option value="markdown">Markdown</option>
-                                            <option value="txt">TXT</option>
-                                        </select>
-                                    </label>
-                                    <button
-                                        className="btn secondary"
-                                        onClick={() => {
-                                            if (!userId || emotionEchoHistoryStore.length === 0) return
-                                            const ext = exportFormat === 'markdown' ? 'md' : 'txt'
-                                            const content = buildEmotionEchoExport(emotionEchoHistoryStore, exportFormat)
-                                            const filename = `echoes-emotion-echo-${new Date().toISOString().slice(0, 10)}.${ext}`
-                                            const mime = exportFormat === 'markdown' ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8'
-                                            triggerDownload(filename, content, mime)
-                                        }}
-                                        disabled={emotionEchoHistoryStore.length === 0}
-                                    >
-                                        导出全部
-                                    </button>
-                                    <button
-                                        className="btn secondary danger"
-                                        onClick={() => {
-                                            if (!userId) return
-                                            clearEmotionEchoHistory(userId)
-                                            refreshEmotionEchoHistory(userId)
-                                        }}
-                                        disabled={emotionEchoHistoryStore.length === 0}
-                                    >
-                                        清除全部
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="history-thread">
-                                {emotionEchoHistoryStore.length === 0 ? (
-                                    <p className="muted">（暂无情绪回响记录）</p>
-                                ) : (
-                                    emotionEchoHistoryStore.slice().reverse().map((r, displayIndex) => {
-                                        const realIndex = emotionEchoHistoryStore.length - 1 - displayIndex
-                                        return (
-                                            <div key={`${r.ts}-${displayIndex}`} className="history-item">
-                                                <div className="history-item-head">
-                                                    <div className="meta">{new Date(r.ts).toLocaleString()} · 情绪：{r.emotionLabel}</div>
-                                                    <button className="history-item-delete" onClick={() => {
-                                                        if (!userId) return
-                                                        deleteEmotionEchoTurn(userId, realIndex)
-                                                        refreshEmotionEchoHistory(userId)
-                                                    }}>删除</button>
-                                                </div>
-                                                <div className="emotion-echo-history-meta">回应人物：{r.selectedRole}</div>
-                                                <div><strong>用户：</strong> {r.input}</div>
-                                                <div className="mt-2"><strong>回应：</strong> {r.reply}</div>
-                                            </div>
-                                        )
-                                    })
-                                )}
-                            </div>
-                        </section>
-                    </div>
-                </div>
-            )}
-
-            {page === 'history' && (
-                <div className="history-page">
-                    <div className="history-page-header">
-                        <div>
-                            <h1>历史记录</h1>
-                            <div className="muted">按人物浏览本地对话，并可导出或删除</div>
-                        </div>
-                        <div className="history-page-actions">
-                            <button className="btn secondary" onClick={() => { if (role === '随机') setRole('孔子'); setPage('chat') }}>返回主对话</button>
-                        </div>
-                    </div>
-
-                    <div className="history-page-layout">
-                        <aside className="history-sidebar-panel">
-                            <div className="history-sidebar-title">人物</div>
-                            <div className="history-sidebar-list history-role-list">
-                                {getSortedHistoryRoles(historyStore).length === 0 ? (
-                                    <p className="muted">（暂无历史人物）</p>
-                                ) : (
-                                    getSortedHistoryRoles(historyStore).map(item => (
-                                        <button
-                                            key={item.name}
-                                            type="button"
-                                            className={`history-role ${selectedHistoryRole === item.name ? 'active' : ''}`}
-                                            onClick={() => setSelectedHistoryRole(item.name)}
-                                        >
-                                            <span className="history-role-name">{item.name}</span>
-                                            <span className="history-role-count">{item.turns.length} 轮</span>
-                                        </button>
-                                    ))
-                                )}
-                            </div>
-                        </aside>
-
-                        <section className="history-detail-panel">
-                            <div className="history-detail-header history-detail-header-side">
-                                <div>
-                                    <div className="muted">用户 ID: {userId}</div>
-                                    <h3>{selectedHistoryRole || '请选择人物'}</h3>
-                                </div>
-                                <div className="history-toolbar history-toolbar-side">
-                                    <label className="history-export-label">
-                                        <span>导出格式</span>
-                                        <select value={exportFormat} onChange={e => setExportFormat(e.target.value as 'markdown' | 'txt')}>
-                                            <option value="markdown">Markdown</option>
-                                            <option value="txt">TXT</option>
-                                        </select>
-                                    </label>
-                                    <button
-                                        className="btn secondary"
-                                        onClick={exportSelectedHistory}
-                                        disabled={!selectedHistoryRole || !historyStore[selectedHistoryRole]?.length}
-                                    >
-                                        下载当前人物
-                                    </button>
-                                    <button
-                                        className="btn secondary danger"
-                                        onClick={clearSelectedRoleHistory}
-                                        disabled={!selectedHistoryRole || !historyStore[selectedHistoryRole]?.length}
-                                    >
-                                        清除当前人物
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="history-thread">
-                                {!selectedHistoryRole ? (
-                                    <p className="muted">（请选择左侧人物查看历史）</p>
-                                ) : (historyStore[selectedHistoryRole] || []).length === 0 ? (
-                                    <p className="muted">（该人物暂无历史）</p>
-                                ) : (
-                                    (historyStore[selectedHistoryRole] || []).slice().reverse().map((t, i) => {
-                                        const originalIndex = (historyStore[selectedHistoryRole] || []).length - 1 - i
-                                        return (
-                                            <div key={`${t.ts}-${i}`} className="history-item">
-                                                <div className="history-item-head">
-                                                    <div className="meta">{new Date(t.ts).toLocaleString()}</div>
-                                                    <button className="history-item-delete" onClick={() => removeSelectedRoleTurn(originalIndex)}>删除</button>
-                                                </div>
-                                                <div><strong>用户：</strong> {t.user}</div>
-                                                <div className="mt-2"><strong>助手：</strong> {t.assistant}</div>
-                                            </div>
-                                        )
-                                    })
-                                )}
-                            </div>
-                        </section>
-                    </div>
-                </div>
-            )}
-
-            {page === 'debate' && (
-                <div className="history-page">
-                    <div className="history-page-header">
-                        <div>
-                            <h1>人物辩论</h1>
-                            <div className="muted">选择或输入最多 3 人，系统生成 3 轮辩论并可本地保存</div>
-                        </div>
-                        <div className="history-page-actions">
-                            <button className="btn secondary" onClick={() => { if (role === '随机') setRole('孔子'); setPage('chat') }}>返回主对话</button>
-                            <button className="btn secondary" onClick={openDebateHistory}>查看辩论历史</button>
-                        </div>
-                    </div>
-
-                    <div className="history-detail-panel">
-                        <div className="debate-page-body">
-                            <div className="debate-topic-block">
-                                <label>辩题</label>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
-                                    <input ref={debateTopicRef} className="debate-topic-input" value={debateTopic} onChange={e => setDebateTopic(e.target.value)} />
-                                    <button
-                                        type="button"
-                                        className="btn secondary topic-clear-btn"
-                                        onClick={() => setDebateTopic('')}
-                                        aria-label="清空辩题"
-                                    >
-                                        清空
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="debate-participants-block">
-                                <label>人物（最多 3 个）</label>
-                                <div className="debate-participants-row">
-                                    {[0, 1, 2].map(i => (
-                                        <div key={i} className="debate-slot-card">
-                                            <button
-                                                type="button"
-                                                className={`debate-slot-tab ${debateActiveSlot === i ? 'active' : ''}`}
-                                                onClick={() => setDebateActiveSlot(i)}
-                                            >
-                                                第 {i + 1} 位
-                                                <span className="debate-slot-tab-value">{debateParticipants[i] || '（空）'}</span>
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="debate-editor-row">
-                                <div className="debate-editor-label">正在编辑第 {debateActiveSlot + 1} 位</div>
-                                <input
-                                    ref={debateCustomRef}
-                                    className="debate-custom-input"
-                                    placeholder={`输入第 ${debateActiveSlot + 1} 位人物`}
-                                    value={debateParticipants[debateActiveSlot] || ''}
-                                    onChange={e => {
-                                        const next = debateParticipants.slice()
-                                        while (next.length < 3) next.push('')
-                                        next[debateActiveSlot] = e.target.value
-                                        setDebateParticipants(next)
-                                    }}
-                                />
-                                <select
-                                    className="debate-quick-select"
-                                    value={getDebateQuickSelectValue(debateParticipants[debateActiveSlot] || '')}
-                                    onChange={e => {
-                                        const v = e.target.value
-                                        const next = debateParticipants.slice()
-                                        while (next.length < 3) next.push('')
-                                        // selecting empty should always clear the current slot, including custom text
-                                        if (!v) {
-                                            next[debateActiveSlot] = ''
-                                            setDebateParticipants(next)
-                                            try { debateCustomRef.current?.focus() } catch (_) { }
-                                            return
-                                        }
-                                        // prevent selecting a name that's already chosen in another slot
-                                        const already = next.find((val, idx) => idx !== debateActiveSlot && (val || '') === v)
-                                        if (already) {
-                                            alert('该人物已在其他位置被选择，请先清除或选择其他人物')
-                                            return
-                                        }
-                                        next[debateActiveSlot] = v
-                                        setDebateParticipants(next)
-                                    }}
-                                >
-                                    <option value="">（空）</option>
-                                    <option value={debateQuickSelectCustomValue} hidden disabled>（自定义）</option>
-                                    {debateFixedRoles.map(name => (
-                                        <option key={name} value={name}>{name}</option>
-                                    ))}
-                                </select>
-                                <button className="btn primary" style={{ marginLeft: 0 }} onClick={async () => {
-                                    const uid = userId || getOrCreateLocalUserId()
-                                    setUserId(uid)
-                                    // validate debate topic
-                                    if (!debateTopic || debateTopic.trim().length === 0) {
-                                        alert('请先输入辩题')
-                                        try { debateTopicRef.current?.focus() } catch (_) { }
-                                        return
-                                    }
-
-                                    const participantsToUse = debateParticipants.map(v => (v || '').trim()).filter(s => s.length > 0)
-                                    if (participantsToUse.length === 0) return alert('请先选择至少一个人物')
-                                    // dedupe check
-                                    const uniq = new Set(participantsToUse)
-                                    if (uniq.size !== participantsToUse.length) {
-                                        alert('人物不能相同，请确保每位参与者不同')
-                                        return
-                                    }
-                                    setReply(null)
-                                    // robustly scroll the outer page so the user sees the live stage
-                                    const scrollToDebateArea = () => {
-                                        const el = debateStageRef.current
-                                        if (!el) return
-                                        try {
-                                            const rect = el.getBoundingClientRect()
-                                            const top = rect.top + window.scrollY - 24 // offset for header
-                                            window.scrollTo({ top, behavior: 'smooth' })
-                                        } catch (e) {
-                                            try { el.scrollIntoView({ behavior: 'smooth', block: 'start' }) } catch (_) { }
-                                        }
-                                    }
-                                    // allow a short delay for layout then scroll
-                                    try { setTimeout(scrollToDebateArea, 80) } catch (_) { scrollToDebateArea() }
-                                    await runDebate(uid, debateTopic, participantsToUse)
-                                }} disabled={isDebating}>{isDebating ? '进行中…' : '开始辩论'}</button>
-                                {isDebating && (
-                                    <button
-                                        type="button"
-                                        className="btn secondary danger"
-                                        style={{ marginLeft: 8 }}
-                                        onClick={() => {
-                                            stopRequestedRef.current = true
-                                            try { debateAbortRef.current?.abort() } catch (_) { }
-                                            debateAbortRef.current = null
-                                            setIsDebating(false)
-                                            // leave liveDebate so user can see collected messages, but stop further generation
-                                        }}
-                                    >停止辩论</button>
-                                )}
-                            </div>
-
-                            <div style={{ marginTop: 12 }}>
-                                <h3>实时辩论</h3>
-                                <div className="debate-stage" ref={debateStageRef}>
-                                    {selectedDebateId ? (
-                                        liveDebate && liveDebate.id === selectedDebateId
-                                            ? liveDebate.messages.map((m, idx) => (
-                                                <div key={idx} className={`debate-bubble ${idx % 2 === 0 ? 'left' : 'right'}`}>
-                                                    <div className="debate-meta">{m.speaker} · {new Date(m.ts).toLocaleTimeString()}</div>
-                                                    <div className="debate-text">{m.text}</div>
-                                                </div>
-                                            ))
-                                            : renderSelectedDebate()
-                                    ) : (
-                                        <p className="muted">（开始辩论后，这里会实时显示每个气泡）</p>
+                                        </>
                                     )}
                                 </div>
                             </div>
-                        </div>
+                        </main>
                     </div>
-                </div>
-            )}
+                )}
 
-            {page === 'debateHistory' && (
-                <div className="history-page">
-                    <div className="history-page-header">
-                        <div>
-                            <h1>辩论历史</h1>
-                            <div className="muted">按辩题查看本地辩论记录，并可导出或删除</div>
-                        </div>
-                        <div className="history-page-actions">
-                            <button className="btn secondary" onClick={() => setPage('debate')}>返回人物辩论</button>
-                        </div>
-                    </div>
-
-                    <div className="history-page-layout">
-                        <aside className="history-sidebar-panel">
-                            <div className="history-sidebar-title">辩论记录</div>
-                            <div className="history-sidebar-list history-role-list">
-                                {debatesList.length === 0 ? (
-                                    <p className="muted">（暂无本地辩论）</p>
-                                ) : (
-                                    debatesList.map(item => (
-                                        <button
-                                            key={item.id}
-                                            type="button"
-                                            className={`history-role ${selectedDebateId === item.id ? 'active' : ''}`}
-                                            onClick={() => setSelectedDebateId(item.id)}
-                                        >
-                                            <span className="history-role-name">{item.topic}</span>
-                                            <span className="history-role-count">{item.messages.length} 条</span>
+                {page === 'reverseQA' && (
+                    <div className="app-shell reverseqa-page">
+                        <main className="main-panel">
+                            <div className="container reverseqa-container">
+                                <div className="topbar reverseqa-topbar">
+                                    <div>
+                                        <h1>Echoes — 反向问答</h1>
+                                        <div className="muted">让历史人物主动向你提问，你来回答，再继续追问</div>
+                                    </div>
+                                    <div className="reverseqa-topbar-actions">
+                                        <button className="btn secondary" onClick={toggleReverseQAHistory}>历史</button>
+                                        <button className="btn secondary" onClick={() => reverseQAImportRef.current?.click()}>
+                                            导入
                                         </button>
-                                    ))
-                                )}
-                            </div>
-                        </aside>
-
-                        <section className="history-detail-panel">
-                            <div className="history-detail-header history-detail-header-side">
-                                <div>
-                                    <div className="muted">用户 ID: {userId}</div>
-                                    <h3>{selectedDebateId || '请选择辩论'}</h3>
+                                        <button className="btn secondary" onClick={startNewReverseQASession}>新会话</button>
+                                        <button className="btn secondary" onClick={() => { if (role === '随机') setRole('孔子'); setPage('chat') }}>返回主对话</button>
+                                    </div>
                                 </div>
-                                <div className="history-toolbar history-toolbar-side">
-                                    <label className="history-export-label">
-                                        <span>导出格式</span>
-                                        <select value={exportFormat} onChange={e => setExportFormat(e.target.value as 'markdown' | 'txt')}>
-                                            <option value="markdown">Markdown</option>
-                                            <option value="txt">TXT</option>
-                                        </select>
-                                    </label>
-                                    <button
-                                        className="btn secondary"
-                                        onClick={exportSelectedDebate}
-                                        disabled={!selectedDebateId || !debatesList.find(d => d.id === selectedDebateId)?.messages.length}
-                                    >
-                                        导出当前辩论
-                                    </button>
-                                    <button
-                                        className="btn secondary danger"
-                                        onClick={() => {
-                                            if (!userId || !selectedDebateId) return
-                                            deleteLocalDebate(userId, selectedDebateId)
-                                            refreshDebates(userId)
-                                        }}
-                                        disabled={!selectedDebateId}
-                                    >
-                                        删除当前辩论
-                                    </button>
-                                </div>
-                            </div>
 
-                            <div className="history-thread">
-                                {!selectedDebateId ? (
-                                    <p className="muted">（请选择左侧辩论查看历史）</p>
-                                ) : (() => {
-                                    const rec = debatesList.find(d => d.id === selectedDebateId)
-                                    if (!rec) return <p className="muted">（该辩论已删除）</p>
-                                    return rec.messages.length === 0 ? (
-                                        <p className="muted">（该辩论暂无内容）</p>
-                                    ) : rec.messages.map((m, idx) => (
-                                        <div key={`${m.ts}-${idx}`} className={`debate-bubble ${idx % 2 === 0 ? 'left' : 'right'}`}>
-                                            <div className="debate-meta">{m.speaker} · {new Date(m.ts).toLocaleString()}</div>
-                                            <div className="debate-text">{m.text}</div>
+                                <input
+                                    ref={reverseQAImportRef}
+                                    type="file"
+                                    accept=".json,.md,.txt,application/json,text/markdown,text/plain"
+                                    style={{ display: 'none' }}
+                                    onChange={async e => {
+                                        const file = e.target.files?.[0]
+                                        e.target.value = ''
+                                        if (!file) return
+                                        try {
+                                            await importReverseQAFile(file)
+                                        } catch (err) {
+                                            console.warn('import reverseQA failed', err)
+                                        }
+                                    }}
+                                />
+
+                                <section className="reverseqa-main-panel">
+                                    <div className="reverseqa-current-question">
+                                        <div className="muted">当前问题</div>
+                                        <div className="reverseqa-question-text">{reverseQAQuestion}</div>
+                                    </div>
+
+                                    <div className="reverseqa-thread reply">
+                                        {reverseQAMessages.length === 0 ? (
+                                            <p className="muted">（点击“生成第一问”开始反向问答）</p>
+                                        ) : (
+                                            reverseQAMessages.map((message, index) => (
+                                                <div key={`${message.ts}-${index}`} className={`reverseqa-message ${message.speaker === '用户' ? 'user' : 'role'}`}>
+                                                    <div className="reverseqa-message-meta">{message.speaker} · {new Date(message.ts).toLocaleTimeString()}</div>
+                                                    <div className="reverseqa-message-text">{message.text}</div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+
+                                    <div className="reverseqa-controls">
+                                        <div className="field role">
+                                            <label>人物</label>
+                                            <select value={role} onChange={e => setRole(e.target.value)}>
+                                                {roles.map(r => (
+                                                    <option key={r} value={r}>{r}</option>
+                                                ))}
+                                            </select>
+                                            {role === '自定义' && (
+                                                <input className="custom-role" placeholder="输入自定义人物" value={customRole} onChange={e => setCustomRole(e.target.value)} />
+                                            )}
                                         </div>
-                                    ))
-                                })()}
+                                        <div className="field grow question">
+                                            <label>{reverseQAMessages.length === 0 ? '话题 / 起点' : '我的回答'}</label>
+                                            <textarea
+                                                value={reverseQAMessages.length === 0 ? reverseQATopic : reverseQAInput}
+                                                style={{ overflowY: 'auto' }}
+                                                onChange={e => {
+                                                    const value = e.target.value
+                                                    if (reverseQAMessages.length === 0) setReverseQATopic(value)
+                                                    else setReverseQAInput(value)
+                                                }}
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                                        e.preventDefault()
+                                                        const ready = reverseQAMessages.length === 0
+                                                            ? (reverseQATopic || '').trim()
+                                                            : (reverseQAInput || '').trim()
+                                                        if (ready && !isReverseQASending) sendReverseQA()
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="field send">
+                                            <label>&nbsp;</label>
+                                            <div className="flex">
+                                                <button
+                                                    className="btn secondary"
+                                                    onClick={() => reverseQAMessages.length === 0 ? setReverseQATopic('') : setReverseQAInput('')}
+                                                    disabled={reverseQAMessages.length === 0 ? !(reverseQATopic || '').trim() : !(reverseQAInput || '').trim()}
+                                                >
+                                                    清空
+                                                </button>
+                                                <button
+                                                    className="btn primary"
+                                                    onClick={sendReverseQA}
+                                                    disabled={isReverseQASending || (reverseQAMessages.length === 0 ? !(reverseQATopic || '').trim() : !(reverseQAInput || '').trim())}
+                                                >
+                                                    {isReverseQASending ? '发送中...' : (reverseQAMessages.length === 0 ? '生成第一问' : '提交回答并追问')}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
                             </div>
-                        </section>
+                        </main>
                     </div>
-                </div>
-            )}
-        </>
+                )}
+
+                {page === 'reverseQAHistory' && (
+                    <div className="history-page">
+                        <div className="history-page-header">
+                            <div>
+                                <h1>反向问答历史</h1>
+                                <div className="muted">按会话查看本地反向问答记录，并可导出或删除</div>
+                            </div>
+                            <div className="history-page-actions">
+                                <button className="btn secondary" onClick={() => { if (role === '随机') setRole('孔子'); setPage('reverseQA') }}>返回反向问答</button>
+                                <button className="btn secondary" onClick={() => reverseQAImportRef.current?.click()}>导入会话</button>
+                            </div>
+                        </div>
+
+                        <div className="history-page-layout">
+                            <aside className="history-sidebar-panel">
+                                <div className="history-sidebar-title">反向问答会话</div>
+                                <div className="history-sidebar-list history-role-list">
+                                    {reverseQASessions.length === 0 ? (
+                                        <p className="muted">（暂无反向问答会话）</p>
+                                    ) : (
+                                        reverseQASessions.map(item => (
+                                            <button
+                                                key={item.id}
+                                                type="button"
+                                                className={`history-role ${selectedReverseQASessionId === item.id ? 'active' : ''}`}
+                                                onClick={() => setSelectedReverseQASessionId(item.id)}
+                                            >
+                                                <span className="history-role-name">{item.role}</span>
+                                                <span className="history-role-count">{item.messages.length} 条</span>
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
+                            </aside>
+
+                            <section className="history-detail-panel">
+                                <div className="history-detail-header history-detail-header-side">
+                                    <div>
+                                        <div className="muted">用户 ID: {userId}</div>
+                                        <h3>{selectedReverseQASessionId || '请选择会话'}</h3>
+                                    </div>
+                                    <div className="history-toolbar history-toolbar-side">
+                                        <label className="history-export-label">
+                                            <span>导出格式</span>
+                                            <select value={exportFormat} onChange={e => setExportFormat(e.target.value as 'markdown' | 'txt')}>
+                                                <option value="markdown">Markdown</option>
+                                                <option value="txt">TXT</option>
+                                            </select>
+                                        </label>
+                                        <button
+                                            className="btn secondary"
+                                            onClick={exportSelectedReverseQASession}
+                                            disabled={!selectedReverseQASessionId || !reverseQASessions.find(item => item.id === selectedReverseQASessionId)?.messages.length}
+                                        >
+                                            导出当前会话
+                                        </button>
+                                        <button
+                                            className="btn secondary danger"
+                                            onClick={() => {
+                                                if (!userId || !selectedReverseQASessionId) return
+                                                deleteLocalReverseQASession(userId, selectedReverseQASessionId)
+                                                refreshReverseQASessions(userId)
+                                            }}
+                                            disabled={!selectedReverseQASessionId}
+                                        >
+                                            删除当前会话
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="history-thread">
+                                    {!selectedReverseQASessionId ? (
+                                        <p className="muted">（请选择左侧会话查看历史）</p>
+                                    ) : (() => {
+                                        const rec = reverseQASessions.find(item => item.id === selectedReverseQASessionId)
+                                        if (!rec) return <p className="muted">（该会话已删除）</p>
+                                        return rec.messages.length === 0 ? (
+                                            <p className="muted">（该会话暂无内容）</p>
+                                        ) : rec.messages.map((message, index) => (
+                                            <div key={`${message.ts}-${index}`} className={`reverseqa-message ${message.speaker === '用户' ? 'user' : 'role'}`}>
+                                                <div className="reverseqa-message-meta">{message.speaker} · {new Date(message.ts).toLocaleString()}</div>
+                                                <div className="reverseqa-message-text">{message.text}</div>
+                                            </div>
+                                        ))
+                                    })()}
+                                </div>
+                            </section>
+                        </div>
+                    </div>
+                )}
+
+                {page === 'emotionEcho' && (
+                    <div className="app-shell emotion-echo-page">
+                        <main className="main-panel">
+                            <div className="container emotion-echo-container">
+                                <div className="topbar emotion-echo-topbar">
+                                    <div>
+                                        <h1>Echoes — 情绪回响</h1>
+                                        <div className="muted">倾诉你的心情，让历史人物以他们的智慧回应你</div>
+                                    </div>
+                                    <div className="reverseqa-topbar-actions">
+                                        <button className="btn secondary" onClick={() => {
+                                            const uid = userId || getOrCreateLocalUserId()
+                                            setUserId(uid)
+                                            refreshEmotionEchoHistory(uid)
+                                            setPage('emotionEchoHistory')
+                                        }}>历史</button>
+                                    </div>
+                                </div>
+
+                                <section className="emotion-echo-main-panel">
+                                    <div className="emotion-echo-input-area">
+                                        <div className="field role">
+                                            <label>回应人物</label>
+                                            <select value={role} onChange={e => setRole(e.target.value)}>
+                                                <option value="随机">随机（AI 推荐）</option>
+                                                {roles.filter(r => r !== '自定义').map(r => (
+                                                    <option key={r} value={r}>{r}</option>
+                                                ))}
+                                                <option value="自定义">自定义</option>
+                                            </select>
+                                            {role === '自定义' && (
+                                                <input className="custom-role" placeholder="输入自定义人物" value={customRole} onChange={e => setCustomRole(e.target.value)} />
+                                            )}
+                                        </div>
+                                        <div className="field grow">
+                                            <label>此刻的心情 / 想说的话</label>
+                                            <textarea
+                                                value={emotionInput}
+                                                style={{ overflowY: 'auto' }}
+                                                onChange={e => setEmotionInput(e.target.value)}
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                                        e.preventDefault()
+                                                        const trimmed = (emotionInput || '').trim()
+                                                        if (trimmed && !isEmotionSending) sendEmotionEcho()
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="field send">
+                                            <label>&nbsp;</label>
+                                            <div className="flex">
+                                                <button
+                                                    className="btn secondary"
+                                                    onClick={() => setEmotionInput('')}
+                                                    disabled={!(emotionInput || '').trim()}
+                                                >
+                                                    清空
+                                                </button>
+                                                <button
+                                                    className="btn primary"
+                                                    onClick={sendEmotionEcho}
+                                                    disabled={isEmotionSending || !(emotionInput || '').trim()}
+                                                >
+                                                    {isEmotionSending ? '发送中...' : '发送'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="emotion-echo-result">
+                                        {emotionLabel && (
+                                            <div className="emotion-analysis-badge">检测到情绪：{emotionLabel}</div>
+                                        )}
+                                        {emotionSelectedRole && role === '随机' && (
+                                            <div className="emotion-selected-role">→ {emotionSelectedRole} 回应你</div>
+                                        )}
+                                        <div className="emotion-echo-reply">
+                                            {emotionReply ? (
+                                                <div className="emotion-echo-reply-content">
+                                                    {emotionReply.split('\n').map((line, i) => (
+                                                        line.trim() ? <p key={i}>{line}</p> : <br key={i} />
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="muted">输入你的心情，点击"发送"让历史人物回应你</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        </main>
+                    </div>
+                )}
+
+                {page === 'emotionEchoHistory' && (
+                    <div className="history-page">
+                        <div className="history-page-header">
+                            <div>
+                                <h1>情绪回响记录</h1>
+                                <div className="muted">查看本地情绪回响历史，并可导出或删除</div>
+                            </div>
+                            <div className="history-page-actions">
+                                <button className="btn secondary" onClick={() => setPage('emotionEcho')}>返回情绪回响</button>
+                            </div>
+                        </div>
+
+                        <div className="history-page-layout">
+                            <aside className="history-sidebar-panel">
+                                <div className="history-sidebar-title">情绪记录</div>
+                                <div className="history-sidebar-list">
+                                    <div className="history-role" style={{ cursor: 'default' }}>
+                                        <span className="history-role-name">全部记录</span>
+                                        <span className="history-role-count">{emotionEchoHistoryStore.length} 条</span>
+                                    </div>
+                                </div>
+                            </aside>
+
+                            <section className="history-detail-panel">
+                                <div className="history-detail-header history-detail-header-side">
+                                    <div>
+                                        <div className="muted">用户 ID: {userId}</div>
+                                        <h3>情绪回响 · 全部记录</h3>
+                                    </div>
+                                    <div className="history-toolbar history-toolbar-side">
+                                        <label className="history-export-label">
+                                            <span>导出格式</span>
+                                            <select value={exportFormat} onChange={e => setExportFormat(e.target.value as 'markdown' | 'txt')}>
+                                                <option value="markdown">Markdown</option>
+                                                <option value="txt">TXT</option>
+                                            </select>
+                                        </label>
+                                        <button
+                                            className="btn secondary"
+                                            onClick={() => {
+                                                if (!userId || emotionEchoHistoryStore.length === 0) return
+                                                const ext = exportFormat === 'markdown' ? 'md' : 'txt'
+                                                const content = buildEmotionEchoExport(emotionEchoHistoryStore, exportFormat)
+                                                const filename = `echoes-emotion-echo-${new Date().toISOString().slice(0, 10)}.${ext}`
+                                                const mime = exportFormat === 'markdown' ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8'
+                                                triggerDownload(filename, content, mime)
+                                            }}
+                                            disabled={emotionEchoHistoryStore.length === 0}
+                                        >
+                                            导出全部
+                                        </button>
+                                        <button
+                                            className="btn secondary danger"
+                                            onClick={() => {
+                                                if (!userId) return
+                                                clearEmotionEchoHistory(userId)
+                                                refreshEmotionEchoHistory(userId)
+                                            }}
+                                            disabled={emotionEchoHistoryStore.length === 0}
+                                        >
+                                            清除全部
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="history-thread">
+                                    {emotionEchoHistoryStore.length === 0 ? (
+                                        <p className="muted">（暂无情绪回响记录）</p>
+                                    ) : (
+                                        emotionEchoHistoryStore.slice().reverse().map((r, displayIndex) => {
+                                            const realIndex = emotionEchoHistoryStore.length - 1 - displayIndex
+                                            return (
+                                                <div key={`${r.ts}-${displayIndex}`} className="history-item">
+                                                    <div className="history-item-head">
+                                                        <div className="meta">{new Date(r.ts).toLocaleString()} · 情绪：{r.emotionLabel}</div>
+                                                        <button className="history-item-delete" onClick={() => {
+                                                            if (!userId) return
+                                                            deleteEmotionEchoTurn(userId, realIndex)
+                                                            refreshEmotionEchoHistory(userId)
+                                                        }}>删除</button>
+                                                    </div>
+                                                    <div className="emotion-echo-history-meta">回应人物：{r.selectedRole}</div>
+                                                    <div><strong>用户：</strong> {r.input}</div>
+                                                    <div className="mt-2"><strong>回应：</strong> {r.reply}</div>
+                                                </div>
+                                            )
+                                        })
+                                    )}
+                                </div>
+                            </section>
+                        </div>
+                    </div>
+                )}
+
+                {page === 'history' && (
+                    <div className="history-page">
+                        <div className="history-page-header">
+                            <div>
+                                <h1>历史记录</h1>
+                                <div className="muted">按人物浏览本地对话，并可导出或删除</div>
+                            </div>
+                            <div className="history-page-actions">
+                                <button className="btn secondary" onClick={() => { if (role === '随机') setRole('孔子'); setPage('chat') }}>返回主对话</button>
+                            </div>
+                        </div>
+
+                        <div className="history-page-layout">
+                            <aside className="history-sidebar-panel">
+                                <div className="history-sidebar-title">人物</div>
+                                <div className="history-sidebar-list history-role-list">
+                                    {getSortedHistoryRoles(historyStore).length === 0 ? (
+                                        <p className="muted">（暂无历史人物）</p>
+                                    ) : (
+                                        getSortedHistoryRoles(historyStore).map(item => (
+                                            <button
+                                                key={item.name}
+                                                type="button"
+                                                className={`history-role ${selectedHistoryRole === item.name ? 'active' : ''}`}
+                                                onClick={() => setSelectedHistoryRole(item.name)}
+                                            >
+                                                <span className="history-role-name">{item.name}</span>
+                                                <span className="history-role-count">{item.turns.length} 轮</span>
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
+                            </aside>
+
+                            <section className="history-detail-panel">
+                                <div className="history-detail-header history-detail-header-side">
+                                    <div>
+                                        <div className="muted">用户 ID: {userId}</div>
+                                        <h3>{selectedHistoryRole || '请选择人物'}</h3>
+                                    </div>
+                                    <div className="history-toolbar history-toolbar-side">
+                                        <label className="history-export-label">
+                                            <span>导出格式</span>
+                                            <select value={exportFormat} onChange={e => setExportFormat(e.target.value as 'markdown' | 'txt')}>
+                                                <option value="markdown">Markdown</option>
+                                                <option value="txt">TXT</option>
+                                            </select>
+                                        </label>
+                                        <button
+                                            className="btn secondary"
+                                            onClick={exportSelectedHistory}
+                                            disabled={!selectedHistoryRole || !historyStore[selectedHistoryRole]?.length}
+                                        >
+                                            下载当前人物
+                                        </button>
+                                        <button
+                                            className="btn secondary danger"
+                                            onClick={clearSelectedRoleHistory}
+                                            disabled={!selectedHistoryRole || !historyStore[selectedHistoryRole]?.length}
+                                        >
+                                            清除当前人物
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="history-thread">
+                                    {!selectedHistoryRole ? (
+                                        <p className="muted">（请选择左侧人物查看历史）</p>
+                                    ) : (historyStore[selectedHistoryRole] || []).length === 0 ? (
+                                        <p className="muted">（该人物暂无历史）</p>
+                                    ) : (
+                                        (historyStore[selectedHistoryRole] || []).slice().reverse().map((t, i) => {
+                                            const originalIndex = (historyStore[selectedHistoryRole] || []).length - 1 - i
+                                            return (
+                                                <div key={`${t.ts}-${i}`} className="history-item">
+                                                    <div className="history-item-head">
+                                                        <div className="meta">{new Date(t.ts).toLocaleString()}</div>
+                                                        <button className="history-item-delete" onClick={() => removeSelectedRoleTurn(originalIndex)}>删除</button>
+                                                    </div>
+                                                    <div><strong>用户：</strong> {t.user}</div>
+                                                    <div className="mt-2"><strong>助手：</strong> {t.assistant}</div>
+                                                </div>
+                                            )
+                                        })
+                                    )}
+                                </div>
+                            </section>
+                        </div>
+                    </div>
+                )}
+
+                {page === 'debate' && (
+                    <div className="history-page">
+                        <div className="history-page-header">
+                            <div>
+                                <h1>人物辩论</h1>
+                                <div className="muted">选择或输入最多 3 人，系统生成 3 轮辩论并可本地保存</div>
+                            </div>
+                            <div className="history-page-actions">
+                                <button className="btn secondary" onClick={() => { if (role === '随机') setRole('孔子'); setPage('chat') }}>返回主对话</button>
+                                <button className="btn secondary" onClick={openDebateHistory}>查看辩论历史</button>
+                            </div>
+                        </div>
+
+                        <div className="history-detail-panel">
+                            <div className="debate-page-body">
+                                <div className="debate-topic-block">
+                                    <label>辩题</label>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+                                        <input ref={debateTopicRef} className="debate-topic-input" value={debateTopic} onChange={e => setDebateTopic(e.target.value)} />
+                                        <button
+                                            type="button"
+                                            className="btn secondary topic-clear-btn"
+                                            onClick={() => setDebateTopic('')}
+                                            aria-label="清空辩题"
+                                        >
+                                            清空
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="debate-participants-block">
+                                    <label>人物（最多 3 个）</label>
+                                    <div className="debate-participants-row">
+                                        {[0, 1, 2].map(i => (
+                                            <div key={i} className="debate-slot-card">
+                                                <button
+                                                    type="button"
+                                                    className={`debate-slot-tab ${debateActiveSlot === i ? 'active' : ''}`}
+                                                    onClick={() => setDebateActiveSlot(i)}
+                                                >
+                                                    第 {i + 1} 位
+                                                    <span className="debate-slot-tab-value">{debateParticipants[i] || '（空）'}</span>
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="debate-editor-row">
+                                    <div className="debate-editor-label">正在编辑第 {debateActiveSlot + 1} 位</div>
+                                    <input
+                                        ref={debateCustomRef}
+                                        className="debate-custom-input"
+                                        placeholder={`输入第 ${debateActiveSlot + 1} 位人物`}
+                                        value={debateParticipants[debateActiveSlot] || ''}
+                                        onChange={e => {
+                                            const next = debateParticipants.slice()
+                                            while (next.length < 3) next.push('')
+                                            next[debateActiveSlot] = e.target.value
+                                            setDebateParticipants(next)
+                                        }}
+                                    />
+                                    <select
+                                        className="debate-quick-select"
+                                        value={getDebateQuickSelectValue(debateParticipants[debateActiveSlot] || '')}
+                                        onChange={e => {
+                                            const v = e.target.value
+                                            const next = debateParticipants.slice()
+                                            while (next.length < 3) next.push('')
+                                            // selecting empty should always clear the current slot, including custom text
+                                            if (!v) {
+                                                next[debateActiveSlot] = ''
+                                                setDebateParticipants(next)
+                                                try { debateCustomRef.current?.focus() } catch (_) { }
+                                                return
+                                            }
+                                            // prevent selecting a name that's already chosen in another slot
+                                            const already = next.find((val, idx) => idx !== debateActiveSlot && (val || '') === v)
+                                            if (already) {
+                                                alert('该人物已在其他位置被选择，请先清除或选择其他人物')
+                                                return
+                                            }
+                                            next[debateActiveSlot] = v
+                                            setDebateParticipants(next)
+                                        }}
+                                    >
+                                        <option value="">（空）</option>
+                                        <option value={debateQuickSelectCustomValue} hidden disabled>（自定义）</option>
+                                        {debateFixedRoles.map(name => (
+                                            <option key={name} value={name}>{name}</option>
+                                        ))}
+                                    </select>
+                                    <button className="btn primary" style={{ marginLeft: 0 }} onClick={async () => {
+                                        const uid = userId || getOrCreateLocalUserId()
+                                        setUserId(uid)
+                                        // validate debate topic
+                                        if (!debateTopic || debateTopic.trim().length === 0) {
+                                            alert('请先输入辩题')
+                                            try { debateTopicRef.current?.focus() } catch (_) { }
+                                            return
+                                        }
+
+                                        const participantsToUse = debateParticipants.map(v => (v || '').trim()).filter(s => s.length > 0)
+                                        if (participantsToUse.length === 0) return alert('请先选择至少一个人物')
+                                        // dedupe check
+                                        const uniq = new Set(participantsToUse)
+                                        if (uniq.size !== participantsToUse.length) {
+                                            alert('人物不能相同，请确保每位参与者不同')
+                                            return
+                                        }
+                                        setReply(null)
+                                        // robustly scroll the outer page so the user sees the live stage
+                                        const scrollToDebateArea = () => {
+                                            const el = debateStageRef.current
+                                            if (!el) return
+                                            try {
+                                                const rect = el.getBoundingClientRect()
+                                                const top = rect.top + window.scrollY - 24 // offset for header
+                                                window.scrollTo({ top, behavior: 'smooth' })
+                                            } catch (e) {
+                                                try { el.scrollIntoView({ behavior: 'smooth', block: 'start' }) } catch (_) { }
+                                            }
+                                        }
+                                        // allow a short delay for layout then scroll
+                                        try { setTimeout(scrollToDebateArea, 80) } catch (_) { scrollToDebateArea() }
+                                        await runDebate(uid, debateTopic, participantsToUse)
+                                    }} disabled={isDebating}>{isDebating ? '进行中…' : '开始辩论'}</button>
+                                    {isDebating && (
+                                        <button
+                                            type="button"
+                                            className="btn secondary danger"
+                                            style={{ marginLeft: 8 }}
+                                            onClick={() => {
+                                                stopRequestedRef.current = true
+                                                try { debateAbortRef.current?.abort() } catch (_) { }
+                                                debateAbortRef.current = null
+                                                setIsDebating(false)
+                                                // leave liveDebate so user can see collected messages, but stop further generation
+                                            }}
+                                        >停止辩论</button>
+                                    )}
+                                </div>
+
+                                <div style={{ marginTop: 12 }}>
+                                    <h3>实时辩论</h3>
+                                    <div className="debate-stage" ref={debateStageRef}>
+                                        {selectedDebateId ? (
+                                            liveDebate && liveDebate.id === selectedDebateId
+                                                ? liveDebate.messages.map((m, idx) => (
+                                                    <div key={idx} className={`debate-bubble ${idx % 2 === 0 ? 'left' : 'right'}`}>
+                                                        <div className="debate-meta">{m.speaker} · {new Date(m.ts).toLocaleTimeString()}</div>
+                                                        <div className="debate-text">{m.text}</div>
+                                                    </div>
+                                                ))
+                                                : renderSelectedDebate()
+                                        ) : (
+                                            <p className="muted">（开始辩论后，这里会实时显示每个气泡）</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {page === 'debateHistory' && (
+                    <div className="history-page">
+                        <div className="history-page-header">
+                            <div>
+                                <h1>辩论历史</h1>
+                                <div className="muted">按辩题查看本地辩论记录，并可导出或删除</div>
+                            </div>
+                            <div className="history-page-actions">
+                                <button className="btn secondary" onClick={() => setPage('debate')}>返回人物辩论</button>
+                            </div>
+                        </div>
+
+                        <div className="history-page-layout">
+                            <aside className="history-sidebar-panel">
+                                <div className="history-sidebar-title">辩论记录</div>
+                                <div className="history-sidebar-list history-role-list">
+                                    {debatesList.length === 0 ? (
+                                        <p className="muted">（暂无本地辩论）</p>
+                                    ) : (
+                                        debatesList.map(item => (
+                                            <button
+                                                key={item.id}
+                                                type="button"
+                                                className={`history-role ${selectedDebateId === item.id ? 'active' : ''}`}
+                                                onClick={() => setSelectedDebateId(item.id)}
+                                            >
+                                                <span className="history-role-name">{item.topic}</span>
+                                                <span className="history-role-count">{item.messages.length} 条</span>
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
+                            </aside>
+
+                            <section className="history-detail-panel">
+                                <div className="history-detail-header history-detail-header-side">
+                                    <div>
+                                        <div className="muted">用户 ID: {userId}</div>
+                                        <h3>{selectedDebateId || '请选择辩论'}</h3>
+                                    </div>
+                                    <div className="history-toolbar history-toolbar-side">
+                                        <label className="history-export-label">
+                                            <span>导出格式</span>
+                                            <select value={exportFormat} onChange={e => setExportFormat(e.target.value as 'markdown' | 'txt')}>
+                                                <option value="markdown">Markdown</option>
+                                                <option value="txt">TXT</option>
+                                            </select>
+                                        </label>
+                                        <button
+                                            className="btn secondary"
+                                            onClick={exportSelectedDebate}
+                                            disabled={!selectedDebateId || !debatesList.find(d => d.id === selectedDebateId)?.messages.length}
+                                        >
+                                            导出当前辩论
+                                        </button>
+                                        <button
+                                            className="btn secondary danger"
+                                            onClick={() => {
+                                                if (!userId || !selectedDebateId) return
+                                                deleteLocalDebate(userId, selectedDebateId)
+                                                refreshDebates(userId)
+                                            }}
+                                            disabled={!selectedDebateId}
+                                        >
+                                            删除当前辩论
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="history-thread">
+                                    {!selectedDebateId ? (
+                                        <p className="muted">（请选择左侧辩论查看历史）</p>
+                                    ) : (() => {
+                                        const rec = debatesList.find(d => d.id === selectedDebateId)
+                                        if (!rec) return <p className="muted">（该辩论已删除）</p>
+                                        return rec.messages.length === 0 ? (
+                                            <p className="muted">（该辩论暂无内容）</p>
+                                        ) : rec.messages.map((m, idx) => (
+                                            <div key={`${m.ts}-${idx}`} className={`debate-bubble ${idx % 2 === 0 ? 'left' : 'right'}`}>
+                                                <div className="debate-meta">{m.speaker} · {new Date(m.ts).toLocaleString()}</div>
+                                                <div className="debate-text">{m.text}</div>
+                                            </div>
+                                        ))
+                                    })()}
+                                </div>
+                            </section>
+                        </div>
+                    </div>
+                )}
+            </main>
+        </div>
     )
 }
